@@ -4,10 +4,15 @@
 #     `\__)    '. . ' ' .  . '
 #                          -vietrux-
 
+import math
+import numpy as np
+import curses
+
 class StudentMarkManagement:
-    def __init__(self):
+    def __init__(self, stdscr):
+        self.stdscr = stdscr
         self.s = []  # List of students (sid, sn, sd)
-        self.c = []  # List of courses (cid, cn)
+        self.c = []  # List of courses (cid, cn, credits)
         self.m = {}  # Dictionary for marks {cid: {sid: mark}}
 
     def ins(self):  
@@ -42,7 +47,8 @@ class StudentMarkManagement:
     def ici(self):  
         cid = input("Enter course ID: ")
         cn = input("Enter course name: ")
-        self.c.append((cid, cn))
+        credits = int(input("Enter number of credits for the course: "))
+        self.c.append((cid, cn, credits))
         self.m[cid] = {}
         print(f"Course {cn} added successfully.")
 
@@ -52,7 +58,7 @@ class StudentMarkManagement:
             return
         
         print("Available courses:")
-        for cid, cn in self.c:
+        for cid, cn, _ in self.c:
             print(f"{cid}: {cn}")
         
         sc = input("Enter the course ID to input marks: ")
@@ -70,6 +76,7 @@ class StudentMarkManagement:
             while True:
                 try:
                     mk = float(input(f"Enter mark for {sn}: "))
+                    mk = math.floor(mk * 10) / 10  # Round down to 1 decimal place
                     if 0 <= mk <= 20:
                         self.m[sc][sid] = mk
                         break
@@ -85,8 +92,8 @@ class StudentMarkManagement:
             print("No courses available.")
         else:
             print("List of courses:")
-            for cid, cn in self.c:
-                print(f"{cid}: {cn}")
+            for cid, cn, credits in self.c:
+                print(f"{cid}: {cn}, Credits: {credits}")
 
     def ls(self):  
         if not self.s:
@@ -102,7 +109,7 @@ class StudentMarkManagement:
             return
         
         print("Available courses:")
-        for cid, cn in self.c:
+        for cid, cn, _ in self.c:
             print(f"{cid}: {cn}")
         
         sc = input("Enter the course ID to show marks: ")
@@ -112,50 +119,33 @@ class StudentMarkManagement:
         
         if not self.m[sc]:
             print("No marks available for this course.")
-            return
-        
-        print(f"Marks for {sc}:")
-        for sid, mk in self.m[sc].items():
-            sn = next(name for id, name, _ in self.s if id == sid)
-            print(f"{sn} (ID: {sid}): {mk}")
-
-    def calculate_gpa(self, sid):
-        """Calculate GPA for a specific student based on their marks."""
-        total_marks = 0
-        total_courses = 0
-        
-        for cid, marks in self.m.items():
-            if sid in marks:  # If the student has marks for this course
-                total_courses += 1
-                mark = marks[sid]
-                if 16 <= mark <= 20:
-                    total_marks += 4.0  # Grade A
-                elif 11 <= mark <= 15:
-                    total_marks += 3.0  # Grade B
-                elif 6 <= mark <= 10:
-                    total_marks += 2.0  # Grade C
-                elif 0 <= mark <= 5:
-                    total_marks += 1.0  # Grade D
-
-        if total_courses > 0:
-            gpa = total_marks / total_courses
-            return gpa
         else:
-            return None
+            print(f"Marks for {sc}:")
+            for sid, mk in self.m[sc].items():
+                sn = next(name for id, name, _ in self.s if id == sid)
+                print(f"{sn} (ID: {sid}): {mk}")
 
-    def show_student_gpa(self):
-        """Show GPA for all students."""
-        if not self.s:
-            print("No students available.")
-            return
+    def calc_gpa(self, sid):
+      
+        total_credits = 0
+        weighted_marks_sum = 0
+        for cid, cn, credits in self.c:
+            if sid in self.m[cid]:
+                mark = self.m[cid][sid]
+                weighted_marks_sum += mark * credits
+                total_credits += credits
         
-        print("Student GPAs:")
-        for sid, sn, _ in self.s:
-            gpa = self.calculate_gpa(sid)
-            if gpa is not None:
-                print(f"{sn} (ID: {sid}) - GPA: {gpa:.2f}")
-            else:
-                print(f"{sn} (ID: {sid}) - No marks available for GPA calculation.")
+        if total_credits == 0:
+            return 0  # No GPA if no courses taken
+        return weighted_marks_sum / total_credits
+
+    def sort_students_by_gpa(self):
+        # Sort students by GPA descending
+        gpas = [(sid, self.calc_gpa(sid)) for sid, _, _ in self.s]
+        sorted_gpas = sorted(gpas, key=lambda x: x[1], reverse=True)
+        
+        # Reorder students list by GPA
+        self.s = [next(student for student in self.s if student[0] == sid) for sid, _ in sorted_gpas]
 
     def show_help(self):
         help_text = (
@@ -168,47 +158,50 @@ class StudentMarkManagement:
             "6. List courses\n"
             "7. List students\n"
             "8. Show student marks for a course\n"
-            "9. Show GPAs for all students\n"
-            "10. Help\n"
-            "11. Exit"
+            "9. Help\n"
+            "10. Exit"
         )
-        print(help_text)
+        self.stdscr.addstr(help_text)
+        self.stdscr.refresh()
 
-    def main(self):
+    def ui(self):
+        self.stdscr.clear()
         self.show_help()
+
         while True:
-            ch = input("Enter your choice: ")
+            ch = self.stdscr.getch()
             
-            if ch == '1':
+            if ch == ord('1'):
                 ns = self.ins()
                 for _ in range(ns):
                     self.isi()
-            elif ch == '2':
+            elif ch == ord('2'):
                 self.isi()
-            elif ch == '3':
+            elif ch == ord('3'):
                 nc = self.inc()
                 for _ in range(nc):
                     self.ici()
-            elif ch == '4':
+            elif ch == ord('4'):
                 self.ici()
-            elif ch == '5':
+            elif ch == ord('5'):
                 self.imc()
-            elif ch == '6':
+            elif ch == ord('6'):
                 self.lc()
-            elif ch == '7':
+            elif ch == ord('7'):
                 self.ls()
-            elif ch == '8':
+            elif ch == ord('8'):
                 self.smc()
-            elif ch == '9':
-                self.show_student_gpa()
-            elif ch == '10':
+            elif ch == ord('9'):
                 self.show_help()
-            elif ch == '11':
-                print("Exiting the program.")
+            elif ch == ord('10'):
+                self.stdscr.addstr("\nExiting the program.\n")
+                self.stdscr.refresh()
                 break
             else:
-                print("Invalid choice. Please try again.")
+                self.stdscr.addstr("\nInvalid choice. Please try again.\n")
+                self.stdscr.refresh()
+
+        self.stdscr.getch()
 
 if __name__ == "__main__":
-    smms = StudentMarkManagement()
-    smms.main()
+    curses.wrapper(StudentMarkManagement)
