@@ -1,3 +1,9 @@
+#       __         .' '.
+#     _/__)        .   .       .
+#    (8|)_}}- .      .        .
+#     `\__)    '. . ' ' .  . '
+#                          -vietrux-
+
 class StudentMarkManagement:
     def __init__(self):
         self.s = []  # List of students (sid, sn, sd)
